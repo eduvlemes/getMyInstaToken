@@ -13,6 +13,9 @@ router.get('/verify-payment/:payment_id', authMiddleware, subscriptionController
 // Webhook do Mercado Pago (não requer autenticação)
 router.post('/webhook', subscriptionController.webhookHandler);
 
+// Endpoint para verificar logs de webhook (apenas para debug)
+router.get('/webhook/logs', authMiddleware, subscriptionController.getWebhookLogs);
+
 // Callbacks de sucesso, falha e pendente do Mercado Pago
 router.get('/success', subscriptionController.handleSubscriptionSuccess);
 router.get('/failure', subscriptionController.handleSubscriptionFailure);

@@ -505,108 +505,23 @@ exports.webhookHandler = async (req, res) => {
   try {
     const { type, data } = req.body;
     
-    console.log('Webhook received:', { type, data });
+    console.log('Webhook received:', { type, data, headers: req.headers });
+    
+    // Validar assinatura do webhook (opcional, mas recomendado)
+    const signature = req.headers['x-signature'];
+    const requestId = req.headers['x-request-id'];
     
     if (type === 'payment') {
-      const paymentId = data.id;
-      
-      // Buscar informações do pagamento no Mercado Pago usando nova API
-      const paymentClient = new Payment(client);
-      const paymentResponse = await paymentClient.get({ id: paymentId });
-      const paymentInfo = paymentResponse;
-      
-      console.log('Payment info from MP:', paymentInfo);
-      
-      const { status, external_reference, transaction_amount, payment_method_id } = paymentInfo;
-      
-      if (!external_reference) {
-        console.log('No external_reference found in payment');
-        return res.status(400).json({ error: true, message: 'No external reference' });
-      }
-      
-      // Extrair user_id e plan_type da referência externa
-      const [userIdPart, planTypePart] = external_reference.split(':plan_type:');
-      const userId = parseInt(userIdPart.split('user_id:')[1]);
-      const planType = planTypePart;
-      
-      console.log('Parsed from external_reference:', { userId, planType });
-      
-      // Buscar usuário e assinatura pendente
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        console.log('User not found:', userId);
-        return res.status(404).json({ error: true, message: 'User not found' });
-      }
-      
-      const subscription = await prisma.subscription.findFirst({
-        where: { 
-          user_id: userId,
-          status: 'pending'
-        },
-        orderBy: { created_at: 'desc' }
-      });
-      
-      if (!subscription) {
-        console.log('Pending subscription not found for user:', userId);
-        return res.status(404).json({ error: true, message: 'Subscription not found' });
-      }
-      
-      // Registrar pagamento
-      const payment = await prisma.payment.create({
-        data: {
-          user_id: userId,
-          subscription_id: subscription.id,
-          amount: transaction_amount,
-          currency: 'BRL',
-          status,
-          mercado_pago_id: paymentId.toString(),
-          payment_method: payment_method_id || 'unknown'
-        }
-      });
-      
-      console.log('Payment registered:', payment);
-      
-      // Atualizar status da assinatura baseado no status do pagamento
-      if (status === 'approved') {
-        // Determinar a data de término da assinatura
-        const now = new Date();
-        let endsAt;
-        
-        if (planType === 'monthly') {
-          endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias
-        } else if (planType === 'yearly') {
-          endsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 365 dias
-        }
-        
-        // Ativar assinatura
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
-            status: 'active',
-            mercado_pago_id: paymentId.toString(),
-            ends_at: endsAt
-          }
-        });
-        
-        console.log('Subscription activated for user:', userId);
-        
-      } else if (status === 'rejected' || status === 'cancelled') {
-        // Marcar assinatura como falhou
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
-            status: 'failed',
-            mercado_pago_id: paymentId.toString()
-          }
-        });
-        
-        console.log('Subscription failed for user:', userId);
-      }
-      
-      return res.status(200).json({ success: true });
+      await handlePaymentWebhook(data.id);
+    } else if (type === 'subscription_preapproval') {
+      await handleSubscriptionWebhook(data.id);
+    } else if (type === 'subscription_authorized_payment') {
+      await handleAuthorizedPaymentWebhook(data.id);
+    } else {
+      console.log('Unknown webhook type:', type);
     }
     
-    return res.status(200).json({ success: true, message: 'Event not processed' });
+    return res.status(200).json({ success: true });
     
   } catch (error) {
     console.error('Webhook handler error:', error);
@@ -617,6 +532,235 @@ exports.webhookHandler = async (req, res) => {
     });
   }
 };
+
+// Handler para webhooks de pagamento único
+async function handlePaymentWebhook(paymentId) {
+  console.log('Processing payment webhook for ID:', paymentId);
+  
+  // Buscar informações do pagamento no Mercado Pago usando nova API
+  const paymentClient = new Payment(client);
+  const paymentResponse = await paymentClient.get({ id: paymentId });
+  const paymentInfo = paymentResponse;
+  
+  console.log('Payment info from MP:', paymentInfo);
+  
+  const { status, external_reference, transaction_amount, payment_method_id } = paymentInfo;
+  
+  if (!external_reference) {
+    console.log('No external_reference found in payment');
+    return;
+  }
+  
+  // Extrair user_id e plan_type da referência externa
+  const [userIdPart, planTypePart] = external_reference.split(':plan_type:');
+  const userId = parseInt(userIdPart.split('user_id:')[1]);
+  const planType = planTypePart;
+  
+  console.log('Parsed from external_reference:', { userId, planType });
+  
+  // Buscar usuário e assinatura pendente
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    console.log('User not found:', userId);
+    return;
+  }
+  
+  const subscription = await prisma.subscription.findFirst({
+    where: { 
+      user_id: userId,
+      status: 'pending'
+    },
+    orderBy: { created_at: 'desc' }
+  });
+  
+  if (!subscription) {
+    console.log('Pending subscription not found for user:', userId);
+    return;
+  }
+  
+  // Registrar pagamento
+  const payment = await prisma.payment.create({
+    data: {
+      user_id: userId,
+      subscription_id: subscription.id,
+      amount: transaction_amount,
+      currency: 'BRL',
+      status,
+      mercado_pago_id: paymentId.toString(),
+      payment_method: payment_method_id || 'unknown'
+    }
+  });
+  
+  console.log('Payment registered:', payment);
+  
+  // Atualizar status da assinatura baseado no status do pagamento
+  if (status === 'approved') {
+    await activateSubscription(subscription.id, userId, planType, paymentId);
+  } else if (status === 'rejected' || status === 'cancelled') {
+    await failSubscription(subscription.id, paymentId);
+  }
+}
+
+// Handler para webhooks de assinatura recorrente
+async function handleSubscriptionWebhook(preapprovalId) {
+  console.log('Processing subscription webhook for preapproval ID:', preapprovalId);
+  
+  try {
+    // Buscar informações da assinatura no Mercado Pago
+    const preapprovalClient = new PreApproval(client);
+    const preapprovalInfo = await preapprovalClient.get({ id: preapprovalId });
+    
+    console.log('PreApproval info from MP:', preapprovalInfo);
+    
+    const { status, external_reference, reason } = preapprovalInfo;
+    
+    if (!external_reference) {
+      console.log('No external_reference found in preapproval');
+      return;
+    }
+    
+    // Buscar assinatura no banco usando preapproval_id
+    const subscription = await prisma.subscription.findFirst({
+      where: { 
+        mercado_pago_id: preapprovalId
+      }
+    });
+    
+    if (!subscription) {
+      console.log('Subscription not found for preapproval ID:', preapprovalId);
+      return;
+    }
+    
+    // Atualizar status da assinatura baseado no status do preapproval
+    if (status === 'authorized') {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: 'active' }
+      });
+      console.log('Recurring subscription activated:', subscription.id);
+      
+    } else if (status === 'cancelled' || status === 'paused') {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: 'cancelled' }
+      });
+      console.log('Recurring subscription cancelled:', subscription.id);
+      
+    } else if (status === 'pending') {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: 'pending' }
+      });
+      console.log('Recurring subscription pending:', subscription.id);
+    }
+    
+  } catch (error) {
+    console.error('Error processing subscription webhook:', error);
+  }
+}
+
+// Handler para webhooks de pagamento autorizado em assinatura
+async function handleAuthorizedPaymentWebhook(paymentId) {
+  console.log('Processing authorized payment webhook for ID:', paymentId);
+  
+  try {
+    // Buscar informações do pagamento
+    const paymentClient = new Payment(client);
+    const paymentInfo = await paymentClient.get({ id: paymentId });
+    
+    console.log('Authorized payment info from MP:', paymentInfo);
+    
+    const { status, external_reference, transaction_amount, preapproval_id } = paymentInfo;
+    
+    // Buscar assinatura pelo preapproval_id
+    const subscription = await prisma.subscription.findFirst({
+      where: { 
+        mercado_pago_id: preapproval_id
+      }
+    });
+    
+    if (!subscription) {
+      console.log('Subscription not found for preapproval ID:', preapproval_id);
+      return;
+    }
+    
+    // Registrar o pagamento recorrente
+    const payment = await prisma.payment.create({
+      data: {
+        user_id: subscription.user_id,
+        subscription_id: subscription.id,
+        amount: transaction_amount,
+        currency: 'BRL',
+        status,
+        mercado_pago_id: paymentId.toString(),
+        payment_method: 'recurring'
+      }
+    });
+    
+    console.log('Recurring payment registered:', payment);
+    
+    // Se o pagamento foi aprovado, estender a assinatura
+    if (status === 'approved') {
+      const now = new Date();
+      let newEndsAt;
+      
+      if (subscription.plan_type === 'monthly') {
+        newEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      } else if (subscription.plan_type === 'yearly') {
+        newEndsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+      }
+      
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'active',
+          ends_at: newEndsAt
+        }
+      });
+      
+      console.log('Subscription renewed until:', newEndsAt);
+    }
+    
+  } catch (error) {
+    console.error('Error processing authorized payment webhook:', error);
+  }
+}
+
+// Função auxiliar para ativar assinatura
+async function activateSubscription(subscriptionId, userId, planType, paymentId) {
+  const now = new Date();
+  let endsAt;
+  
+  if (planType === 'monthly') {
+    endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 dias
+  } else if (planType === 'yearly') {
+    endsAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 365 dias
+  }
+  
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      status: 'active',
+      mercado_pago_id: paymentId.toString(),
+      ends_at: endsAt
+    }
+  });
+  
+  console.log('Subscription activated for user:', userId);
+}
+
+// Função auxiliar para marcar assinatura como falhou
+async function failSubscription(subscriptionId, paymentId) {
+  await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      status: 'failed',
+      mercado_pago_id: paymentId.toString()
+    }
+  });
+  
+  console.log('Subscription failed for subscription:', subscriptionId);
+}
 
 // Verificar se a assinatura está válida (para uso interno na API)
 exports.validateSubscription = async (userId) => {
@@ -781,6 +925,70 @@ exports.verifyPaymentOwnership = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao verificar propriedade do pagamento',
+      error: error.message
+    });
+  }
+};
+
+// Endpoint para visualizar logs de webhook (apenas para debug/admin)
+exports.getWebhookLogs = async (req, res) => {
+  try {
+    // Buscar últimos 50 pagamentos com informações de webhook
+    const payments = await prisma.payment.findMany({
+      take: 50,
+      orderBy: { created_at: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            instagram_username: true
+          }
+        },
+        subscription: {
+          select: {
+            id: true,
+            plan_type: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    // Buscar assinaturas recentes para debug
+    const subscriptions = await prisma.subscription.findMany({
+      take: 20,
+      orderBy: { created_at: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            instagram_username: true
+          }
+        },
+        payments: {
+          orderBy: { created_at: 'desc' },
+          take: 3
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        recent_payments: payments,
+        recent_subscriptions: subscriptions,
+        webhook_url: `${process.env.BACKEND_URL}/api/subscription/webhook`,
+        last_updated: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting webhook logs:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar logs de webhook',
       error: error.message
     });
   }
