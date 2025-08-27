@@ -1,32 +1,21 @@
-# 🚀 Guia de Deploy - GetMyInstaToken no EasyPanel
+# 🚀 Guia de Deploy - GetMyInstaToken no EasyPanel (Monorepo Node.js)
 
 ## Pré-requisitos
 - Conta no EasyPanel
-- Docker instalado localmente (para build das imagens)
+- Repositório GitHub
 - Acesso ao código da aplicação
 
 ## 📋 Passo a Passo
 
-### 1. **Preparar o Ambiente**
-
-#### **Opção A: Deploy via GitHub (Recomendado)**
+### 1. **Preparar o Repositório GitHub**
 ```bash
-# Clone/acesse o projeto
 cd c:\DevBox\getMyInstaToken
-
-# Setup Git e GitHub
 git init
 git add .
-git commit -m "🎉 Instagram subscription system"
+git commit -m "🎉 Instagram subscription system - Monorepo"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/getMyInstaToken.git
 git push -u origin main
-```
-
-#### **Opção B: Deploy via Docker Images**
-```bash
-# Execute o script de deploy
-bash deploy.sh
 ```
 
 ### 2. **Configurar no EasyPanel**
@@ -41,26 +30,17 @@ bash deploy.sh
    - **Password**: (gere uma senha segura)
    - **Port**: `5432`
 
-#### 🔧 **B. Deploy do Backend**
-
-##### **Via GitHub Repository (Recomendado)**
+#### 🔧 **B. Criar App Service (Node.js)**
 1. Crie um novo **Service** > **App**
 2. Configure:
-   - **Name**: `instagramtoken-backend`
+   - **Name**: `instagramtoken-app`
    - **Source**: **GitHub Repository**
    - **Repository**: `https://github.com/SEU_USUARIO/getMyInstaToken`
-   - **Build Context**: `./backend`
-   - **Dockerfile Path**: `./backend/Dockerfile`
+   - **Build Command**: `npm run build`
+   - **Start Command**: `npm start`
    - **Port**: `5000`
+   - **Node Version**: `18.x`
    - **Auto Deploy**: ✅ (on push to main)
-
-##### **Via Docker Image**
-1. Crie um novo **Service** > **App**
-2. Configure:
-   - **Name**: `instagramtoken-backend`
-   - **Source**: Upload Docker Image
-   - **Image**: `getmyinstatoken-backend:latest`
-   - **Port**: `5000`
 
 3. **Environment Variables**:
 ```env
@@ -70,55 +50,101 @@ JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFt
 INSTAGRAM_CLIENT_ID=1271140675015743
 INSTAGRAM_CLIENT_SECRET=a75c732e2073950f9a7cd7d20950dead
 MERCADO_PAGO_ACCESS_TOKEN=seu-token-real-aqui
-FRONTEND_URL=https://seu-frontend-domain.easypanel.app
-BACKEND_URL=https://seu-backend-domain.easypanel.app
-INSTAGRAM_REDIRECT_URI=https://seu-backend-domain.easypanel.app/api/auth/instagram/callback
+FRONTEND_URL=https://seu-app.easypanel.app
+BACKEND_URL=https://seu-app.easypanel.app
+INSTAGRAM_REDIRECT_URI=https://seu-app.easypanel.app/api/auth/instagram/callback
 ```
 
-4. **Domínio**: Configure um subdomínio (ex: `api.seuapp.com`)
+4. **Domínio**: Configure um subdomínio (ex: `instagramtoken.easypanel.app`)
 
-#### 🎨 **C. Deploy do Frontend**
+### 3. **Como Funciona**
+- **Single Service**: Uma única aplicação Node.js
+- **Frontend**: Servido estaticamente pelo backend em `/`
+- **API**: Disponível em `/api/*`
+- **Database**: PostgreSQL separado
+- **Build Process**: Frontend compilado é integrado ao backend
 
-##### **Via GitHub Repository (Recomendado)**
-1. Crie um novo **Service** > **App**
-2. Configure:
-   - **Name**: `instagramtoken-frontend`
-   - **Source**: **GitHub Repository**
-   - **Repository**: `https://github.com/SEU_USUARIO/getMyInstaToken`
-   - **Build Context**: `./frontend`
-   - **Dockerfile Path**: `./frontend/Dockerfile`
-   - **Port**: `80`
-   - **Auto Deploy**: ✅ (on push to main)
+### 4. **Verificar Deployment**
+- **App completa**: `https://seu-app.easypanel.app/`
+- **API Health Check**: `https://seu-app.easypanel.app/health`
+- **Login Instagram**: `https://seu-app.easypanel.app/api/auth/instagram`
 
-##### **Via Docker Image**
-1. Crie um novo **Service** > **App**
-2. Configure:
-   - **Name**: `instagramtoken-frontend`
-   - **Source**: Upload Docker Image  
-   - **Image**: `getmyinstatoken-frontend:latest`
-   - **Port**: `80`
+## 🔧 Configurações Adicionais
 
-3. **Environment Variables**:
-```env
-VUE_APP_API_URL=https://seu-backend-domain.easypanel.app
+### **Variáveis de Ambiente Importantes**
+- `MERCADO_PAGO_ACCESS_TOKEN`: Token real do Mercado Pago
+- `INSTAGRAM_CLIENT_ID/SECRET`: Credenciais do Facebook Developers
+- `DATABASE_URL`: String de conexão do PostgreSQL
+- `JWT_SECRET`: Chave secreta para JWT
+
+### **Estrutura de URLs**
+```
+https://seu-app.easypanel.app/          → Frontend (Vue.js)
+https://seu-app.easypanel.app/api/      → Backend API
+https://seu-app.easypanel.app/health    → Health Check
 ```
 
-4. **Domínio**: Configure um subdomínio (ex: `app.seuapp.com`)
+### **Monitoramento**
+- Health checks configurados automaticamente
+- Logs disponíveis no painel EasyPanel
+- Métricas de CPU/RAM/Storage em uma única aplicação
 
-### 3. **Configurar SSL**
-- EasyPanel automaticamente configura SSL via Let's Encrypt
-- Certifique-se de que os domínios estão apontando corretamente
+### **Backup**
+- Configure backup automático do PostgreSQL no EasyPanel
+- Exporte dados importantes regularmente
 
-### 4. **Executar Migrações do Banco**
-```bash
-# Conecte no container do backend e execute:
-npx prisma db push
-npx prisma db seed
-```
+## 🚨 Troubleshooting
 
-### 5. **Verificar Deployment**
-- Backend Health Check: `https://seu-backend-domain.easypanel.app/health`
-- Frontend: `https://seu-frontend-domain.easypanel.app`
+### **Problema: Build Failed**
+- Verifique se `npm run build` funciona localmente
+- Confirme se todas as dependências estão no package.json
+- Verifique logs de build no EasyPanel
+
+### **Problema: App não inicia**
+- Verifique se `npm start` funciona localmente
+- Confirme a `DATABASE_URL`
+- Execute `npx prisma generate` se necessário
+
+### **Problema: Database Connection Failed**
+- Verifique se o PostgreSQL está rodando
+- Confirme a `DATABASE_URL` 
+- Execute `npm run prisma:push` se necessário
+
+### **Problema: Frontend não carrega**
+- Verifique se o build foi executado corretamente
+- Confirme se a pasta `backend/public` foi criada
+- Verifique logs do servidor
+
+### **Problema: Instagram Login Failed**  
+- Verifique `INSTAGRAM_REDIRECT_URI` no backend
+- Confirme configurações no Facebook Developers
+- URLs devem usar HTTPS em produção
+
+## 📞 **Suporte**
+- Documentação EasyPanel: https://easypanel.io/docs
+- Logs de aplicação disponíveis no dashboard
+- Health checks em: `/health`
+
+## ✅ **Checklist Final**
+- [ ] Repositório GitHub configurado
+- [ ] PostgreSQL criado e rodando
+- [ ] App service deployado com health check OK
+- [ ] SSL configurado para o domínio
+- [ ] Variáveis de ambiente configuradas
+- [ ] Instagram OAuth funcionando
+- [ ] Mercado Pago configurado
+- [ ] Migrations executadas
+- [ ] Frontend carregando corretamente
+- [ ] API funcionando
+- [ ] Testes de login/assinatura funcionando
+
+## 🎯 **Vantagens do Monorepo**
+✅ Um único serviço para gerenciar  
+✅ Sem problemas de CORS  
+✅ Deploy simplificado  
+✅ Um único domínio  
+✅ Menos configuração  
+✅ Menos custos
 
 ## 🔧 Configurações Adicionais
 

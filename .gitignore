@@ -19,6 +19,7 @@ dist/
 build/
 */dist/
 */build/
+backend/public/
 
 # Database
 *.db
@@ -108,9 +109,6 @@ temp/
 .Trashes
 ehthumbs.db
 Thumbs.db
-
-# Docker
-*.tar.gz
 
 # Production secrets (keep these safe!)
 # MERCADO_PAGO_ACCESS_TOKEN

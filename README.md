@@ -14,6 +14,22 @@ getMyInstaToken/
 └── README.md
 ```
 
+# GetMyInstaToken - Sistema de Monetização Instagram
+
+Sistema completo de assinatura recorrente para tokens do Instagram usando Mercado Pago.
+
+## 🚀 Deploy Monorepo no EasyPanel (Node.js)
+
+### **Estrutura do Projeto**
+```
+getMyInstaToken/
+├── backend/          # API Node.js + Prisma + Serve Frontend
+├── frontend/         # Vue.js SPA (build integrado ao backend)
+├── package.json      # Monorepo root
+├── build.sh          # Script de build
+└── README.md
+```
+
 ### **🔧 Configuração do Deploy**
 
 #### **1. Preparar o Repositório GitHub**
@@ -21,55 +37,78 @@ getMyInstaToken/
 cd c:\DevBox\getMyInstaToken
 git init
 git add .
-git commit -m "Initial commit - Instagram token subscription system"
+git commit -m "🎉 Instagram subscription system - Monorepo"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/getMyInstaToken.git
 git push -u origin main
 ```
 
-#### **2. Configurar Secrets no GitHub**
-Vá em **Settings** > **Secrets and variables** > **Actions** e adicione:
+#### **2. Deploy no EasyPanel**
 
+##### **App Configuration**
+1. **New Project** → `instagram-token-system`
+2. **Add Service** → **App** (Node.js)
+3. **Add Service** → **Database** → **PostgreSQL**
+
+##### **App Service Settings**
+```yaml
+Name: instagramtoken-app
+Source Type: GitHub Repository
+Repository: https://github.com/SEU_USUARIO/getMyInstaToken
+Build Command: npm run build
+Start Command: npm start
+Port: 5000
+Node Version: 18.x
+Auto Deploy: ✅ (on push to main)
+```
+
+##### **Database Service**
+```yaml
+Service: PostgreSQL
+Name: instagramtoken-db
+Database: instagramtoken
+Username: postgres
+Password: [gerar senha segura]
+Port: 5432
+```
+
+### **📋 Environment Variables**
+
+#### **App Service Environment Variables**
 ```env
-# Opcionais para Docker Hub
-DOCKER_USERNAME=seu_usuario_docker
-DOCKER_PASSWORD=sua_senha_docker
-
-# Para deploy automático (opcional)
-EASYPANEL_API_KEY=sua_api_key_easypanel
-EASYPANEL_PROJECT_ID=id_do_projeto
+NODE_ENV=production
+DATABASE_URL=postgresql://postgres:SUA_SENHA@instagramtoken-db:5432/instagramtoken?sslmode=disable
+JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30
+INSTAGRAM_CLIENT_ID=1271140675015743
+INSTAGRAM_CLIENT_SECRET=a75c732e2073950f9a7cd7d20950dead
+MERCADO_PAGO_ACCESS_TOKEN=SEU_TOKEN_MERCADO_PAGO_REAL
+FRONTEND_URL=https://seu-app.easypanel.app
+BACKEND_URL=https://seu-app.easypanel.app
+INSTAGRAM_REDIRECT_URI=https://seu-app.easypanel.app/api/auth/instagram/callback
 ```
 
-#### **3. Deploy no EasyPanel**
+### **🔄 Como funciona o Deploy**
 
-##### **A. Via GitHub Repository (Recomendado)**
-1. No EasyPanel, crie um novo **Service** > **App**
-2. Escolha **Source**: **GitHub Repository**
-3. Conecte: `https://github.com/SEU_USUARIO/getMyInstaToken`
-4. Configure:
+1. **Push para GitHub** → Trigger automático no EasyPanel
+2. **Build Process**:
+   - `npm install` (instala dependências)
+   - `npm run build` (builda frontend e configura backend)
+   - Frontend compilado é servido pelo backend
+3. **Single Service**: Uma única aplicação Node.js serve tudo
+4. **Single Domain**: Frontend e API no mesmo domínio
 
-**Backend Service:**
-- **Name**: `instagramtoken-backend`
-- **Build Path**: `./backend`
-- **Dockerfile**: `./backend/Dockerfile`
-- **Port**: `5000`
+### **🌐 Estrutura da Aplicação**
+- **Frontend**: `https://seu-app.easypanel.app/`
+- **API**: `https://seu-app.easypanel.app/api/`
+- **Health Check**: `https://seu-app.easypanel.app/health`
 
-**Frontend Service:**
-- **Name**: `instagramtoken-frontend` 
-- **Build Path**: `./frontend`
-- **Dockerfile**: `./frontend/Dockerfile`
-- **Port**: `80`
-
-##### **B. Via Docker Images**
-Se preferir usar images prontas:
-```bash
-# Build local e push para Docker Hub
-docker build -t seuusuario/instagramtoken-backend:latest ./backend
-docker build -t seuusuario/instagramtoken-frontend:latest ./frontend
-
-docker push seuusuario/instagramtoken-backend:latest
-docker push seuusuario/instagramtoken-frontend:latest
-```
+### **📊 Vantagens do Monorepo**
+✅ Um único serviço para gerenciar  
+✅ Sem problemas de CORS  
+✅ Deploy simplificado  
+✅ Um único domínio  
+✅ Menos configuração  
+✅ Menos custos  
 
 ## Features
 
