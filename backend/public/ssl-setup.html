@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSL Certificate Setup</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #1877f2;
+    }
+    .step {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-left: 4px solid #1877f2;
+    }
+    code {
+      background-color: #f1f1f1;
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    img {
+      max-width: 100%;
+      border: 1px solid #ddd;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Instagram OAuth Local Setup</h1>
+  <p>Para usar o Instagram OAuth com HTTPS localmente, você precisa seguir estes passos:</p>
+  
+  <div class="step">
+    <h3>Passo 1: Confie no Certificado Autoassinado</h3>
+    <p>Quando você visita <a href="https://localhost:5000/api/health">https://localhost:5000/api/health</a>, seu navegador mostrará um aviso de segurança.</p>
+    <p>No Chrome, clique em "Avançado" e depois em "Continuar para localhost (não seguro)".</p>
+  </div>
+  
+  <div class="step">
+    <h3>Passo 2: Atualize o Instagram Developer Portal</h3>
+    <p>Certifique-se de que a URL de redirecionamento no Portal de Desenvolvedor do Instagram/Facebook esteja definida como:</p>
+    <code>https://localhost:5000/api/auth/instagram/callback</code>
+    <p>Acesse: <a href="https://developers.facebook.com/" target="_blank">Facebook for Developers</a></p>
+  </div>
+  
+  <div class="step">
+    <h3>Passo 3: Permissões Necessárias</h3>
+    <p>Verifique se você solicitou as seguintes permissões para seu aplicativo Instagram:</p>
+    <ul>
+      <li><code>instagram_basic</code></li>
+      <li><code>instagram_business_basic</code></li>
+      <li><code>instagram_business_manage_messages</code></li>
+    </ul>
+  </div>
+  
+  <div class="step">
+    <h3>Passo 4: Teste o Login</h3>
+    <p>Agora você pode testar o login Instagram visitando: <a href="http://localhost:8080">http://localhost:8080</a></p>
+  </div>
+  
+  <p>Se você seguiu todos os passos corretamente, o fluxo OAuth do Instagram deve funcionar localmente com HTTPS.</p>
+</body>
+</html>

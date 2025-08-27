@@ -1,0 +1,16 @@
+const express = require('express');
+const { getUserToken, refreshToken, getTokenInfo } = require('../controllers/token.controller');
+const { authenticate } = require('../middlewares/auth.middleware');
+
+const router = express.Router();
+
+// Public route - allows embedding the token in any website using api_key instead of user ID
+router.get('/token/:apiKey/script.js', getUserToken);
+
+// Protected route - only the owner can refresh their token
+router.post('/users/:id/refresh-token', authenticate, refreshToken);
+
+// Protected route - get token info for the authenticated user
+router.get('/token/info', authenticate, getTokenInfo);
+
+module.exports = router;

@@ -1,0 +1,188 @@
+const { PrismaClient } = require('@prisma/client');
+const axios = require('axios');
+
+const prisma = new PrismaClient();
+
+// Função para atualizar um token do Instagram
+async function refreshInstagramToken(token) {
+  const refreshResponse = await axios.get('https://graph.instagram.com/refresh_access_token', {
+    params: {
+      grant_type: 'ig_refresh_token',
+      access_token: token
+    }
+  });
+
+  const refreshedToken = refreshResponse.data.access_token;
+  const expiresIn = refreshResponse.data.expires_in; // Em segundos
+  const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+  
+  return {
+    token: refreshedToken,
+    expiresAt: tokenExpiresAt
+  };
+}
+
+// Get user's token JavaScript file
+exports.getUserToken = async (req, res) => {
+  try {
+    const { apiKey } = req.params;
+    
+    if (!apiKey) {
+      return res.status(400).json({ error: true, message: 'API key is required' });
+    }
+    
+    // Find user by API key
+    const user = await prisma.user.findUnique({
+      where: { api_key: apiKey }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: true, message: 'User not found' });
+    }
+    
+    // Check if user has a valid Instagram token
+    if (!user.instagram_token) {
+      return res.status(400).json({ error: true, message: 'User has not connected an Instagram account' });
+    }
+    
+    // Create JavaScript that can be embedded in a website
+    const jsContent = `
+      // Instagram Token Widget
+      (function() {
+        const container = document.createElement('div');
+        container.className = 'instagram-token-widget';
+        container.style.padding = '15px';
+        container.style.border = '1px solid #ccc';
+        container.style.borderRadius = '4px';
+        
+        // Add the token
+        const tokenElement = document.createElement('div');
+        tokenElement.innerHTML = '<strong>Instagram Token:</strong> <code>${user.instagram_token}</code>';
+        container.appendChild(tokenElement);
+        
+        // Add expiration date if available
+        ${user.token_expires_at ? `
+        const expiresElement = document.createElement('div');
+        expiresElement.innerHTML = '<strong>Expires:</strong> ${new Date(user.token_expires_at).toLocaleString()}';
+        container.appendChild(expiresElement);
+        ` : ''}
+        
+        // Append to the script tag's parent
+        const scriptTag = document.currentScript;
+        scriptTag.parentNode.insertBefore(container, scriptTag);
+      })();
+    `;
+    
+    // Send as JavaScript
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(jsContent);
+    
+  } catch (error) {
+    console.error('Get token script error:', error);
+    res.status(500).json({ error: true, message: error.message });
+  }
+};
+
+/**
+ * Refreshes the Instagram token for a user
+ */
+exports.refreshToken = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+    
+    // Check if the user is requesting their own token
+    if (req.user.id !== userId) {
+      return res.status(403).json({
+        error: true,
+        message: 'You can only refresh your own token'
+      });
+    }
+    
+    // Get current user
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        error: true,
+        message: 'User not found'
+      });
+    }
+    
+    try {
+      // Refresh long-lived token using nossa função utilitária
+      const refreshedData = await refreshInstagramToken(user.long_lived_token);
+
+      // Update token in database
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          long_lived_token: refreshedData.token,
+          token_expires_at: refreshedData.expiresAt
+        },
+        select: {
+          token_expires_at: true
+        }
+      });
+
+      console.log(`Token refreshed successfully for user ${user.id} (${user.username}), new expiration: ${refreshedData.expiresAt}`);
+
+      res.json({ 
+        error: false, 
+        message: 'Token refreshed successfully',
+        expires_at: updatedUser.token_expires_at
+      });
+    } catch (refreshError) {
+      console.error(`Error refreshing token for user ${user.id} (${user.username}):`, refreshError.message);
+      res.status(500).json({ error: true, message: `Failed to refresh Instagram token: ${refreshError.message}` });
+    }
+    
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ error: true, message: error.message });
+  }
+};
+
+/**
+ * Get token information for the authenticated user
+ */
+exports.getTokenInfo = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        error: true,
+        message: 'Authentication required'
+      });
+    }
+    
+    // Get current user with token information
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        instagram_token: true,
+        token_expires_at: true,
+        long_lived_token: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        error: true,
+        message: 'User not found'
+      });
+    }
+    
+    // Return token info
+    return res.json({
+      error: false,
+      instagram_token: user.instagram_token ? true : false,
+      long_lived_token: user.long_lived_token ? true : false,
+      expires_at: user.token_expires_at
+    });
+    
+  } catch (error) {
+    console.error('Get token info error:', error);
+    res.status(500).json({ error: true, message: error.message });
+  }
+};

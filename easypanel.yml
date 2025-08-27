@@ -1,0 +1,52 @@
+# EasyPanel Configuration for GetMyInstaToken
+
+version: '3.8'
+
+services:
+  # Database
+  database:
+    type: "postgresql"
+    name: "instagramtoken-db" 
+    config:
+      database: "instagramtoken"
+      username: "postgres"
+      port: 5432
+    
+  # Backend API
+  backend:
+    type: "app"
+    name: "instagramtoken-backend"
+    source:
+      type: "docker"
+      image: "getmyinstatoken-backend:latest"
+    port: 5000
+    environment:
+      NODE_ENV: "production"
+      DATABASE_URL: "postgresql://postgres:${DB_PASSWORD}@instagramtoken-db:5432/instagramtoken?sslmode=disable"
+      JWT_SECRET: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30"
+      INSTAGRAM_CLIENT_ID: "1271140675015743"
+      INSTAGRAM_CLIENT_SECRET: "a75c732e2073950f9a7cd7d20950dead"
+      MERCADO_PAGO_ACCESS_TOKEN: "${MERCADO_PAGO_TOKEN}"
+      FRONTEND_URL: "${FRONTEND_DOMAIN}"
+      BACKEND_URL: "${BACKEND_DOMAIN}"
+      INSTAGRAM_REDIRECT_URI: "${BACKEND_DOMAIN}/api/auth/instagram/callback"
+    healthcheck:
+      path: "/health"
+      interval: 30
+    
+  # Frontend
+  frontend:
+    type: "app" 
+    name: "instagramtoken-frontend"
+    source:
+      type: "docker"
+      image: "getmyinstatoken-frontend:latest"
+    port: 80
+    environment:
+      VUE_APP_API_URL: "${BACKEND_DOMAIN}"
+    
+# Environment Variables to Set in EasyPanel:
+# DB_PASSWORD: (generate secure password)
+# MERCADO_PAGO_TOKEN: (your real Mercado Pago token)
+# FRONTEND_DOMAIN: https://your-frontend-domain.easypanel.app
+# BACKEND_DOMAIN: https://your-backend-domain.easypanel.app
