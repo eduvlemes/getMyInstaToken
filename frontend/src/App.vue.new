@@ -1,0 +1,112 @@
+<template>
+  <div id="app">
+    <header>
+      <nav>
+        <div class="logo">
+          <router-link to="/">GetMyInstaToken</router-link>
+        </div>
+        <div class="nav-links">
+          <router-link to="/" exact>Home</router-link>
+          <router-link to="/profile" v-if="isAuthenticated">My Profile</router-link>
+        </div>
+      </nav>
+    </header>
+    
+    <main>
+      <router-view />
+    </main>
+    
+    <footer>
+      <p>&copy; {{ new Date().getFullYear() }} GetMyInstaToken. All rights reserved.</p>
+    </footer>
+  </div>
+</template>
+
+<script>
+import { mapGetters, mapActions } from 'vuex';
+
+export default {
+  name: 'App',
+  computed: {
+    ...mapGetters(['isAuthenticated', 'currentUser'])
+  },
+  methods: {
+    ...mapActions(['initAuth'])
+  },
+  created() {
+    // Initialize authentication state from cookies
+    this.initAuth();
+  }
+};
+</script>
+
+<style>
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8f8f8;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header {
+  background-color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo a {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #e1306c;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.nav-links a {
+  color: #333;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.nav-links a:hover {
+  color: #e1306c;
+}
+
+.nav-links a.router-link-active {
+  color: #e1306c;
+  font-weight: bold;
+}
+
+main {
+  flex: 1;
+  padding: 2rem 0;
+}
+
+footer {
+  background-color: #333;
+  color: white;
+  text-align: center;
+  padding: 1.5rem;
+  margin-top: auto;
+}
+</style>

@@ -1,0 +1,536 @@
+<template>
+  <div class="profile">
+    <div v-if="isLoading" class="loading">Loading...</div>
+    <div v-else-if="!currentUser" class="not-authenticated">
+      <h2>Not Authenticated</h2>
+      <p>Please login to view your profile</p>
+      <button @click="$router.push('/')">Go to Login</button>
+    </div>
+    <div v-else class="profile-container">
+      <!-- Subscription Alert -->
+      <div v-if="subscriptionStatus && !subscriptionStatus.isActive && !subscriptionStatus.inTrialPeriod" 
+           class="subscription-alert">
+        <div class="alert-content">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-text">
+            <h3>Assinatura necessária</h3>
+            <p>Seu token deixará de funcionar em breve. Assine agora para continuar usando nosso serviço sem interrupções.</p>
+          </div>
+        </div>
+        <button @click="startSubscription('monthly')" class="subscription-button">
+          Assinar por R$29,90/mês
+        </button>
+        <button @click="startSubscription('yearly')" class="subscription-button subscription-button-yearly">
+          Assinar por R$299,90/ano <span class="discount-badge">Economize 16%</span>
+        </button>
+      </div>
+      
+      <!-- Trial Period Alert -->
+      <div v-if="subscriptionStatus && subscriptionStatus.inTrialPeriod" 
+           class="trial-alert">
+        <div class="alert-content">
+          <div class="alert-icon">🎁</div>
+          <div class="alert-text">
+            <h3>Período de teste gratuito</h3>
+            <p>
+              <strong class="countdown">Faltam {{ subscriptionStatus.daysLeft }} dias</strong> 
+              para acabar seu teste grátis. Garanta sua assinatura agora e não perca acesso ao seu token!
+            </p>
+          </div>
+        </div>
+        <button @click="startSubscription('monthly')" class="subscription-button">
+          Assinar agora
+        </button>
+      </div>
+      
+      <!-- Active Subscription Info -->
+      <div v-if="subscriptionStatus && subscriptionStatus.isActive" class="subscription-info">
+        <div class="info-badge">
+          <span class="badge-icon">✓</span>
+          <span class="badge-text">Assinatura ativa</span>
+        </div>
+        <p>Seu plano: <strong>{{ getSubscriptionPlanName() }}</strong></p>
+        <p v-if="subscriptionStatus.subscription.ends_at">
+          Válido até: {{ formatDate(subscriptionStatus.subscription.ends_at) }}
+        </p>
+      </div>
+      
+      <div class="profile-header">
+        <div class="profile-image">
+          <img v-if="currentUser.profile_picture" :src="currentUser.profile_picture" alt="Profile picture" />
+          <div v-else class="profile-placeholder">{{ currentUser.username?.charAt(0).toUpperCase() || 'U' }}</div>
+        </div>
+        <div class="profile-info">
+          <h1>{{ currentUser.username }}</h1>
+          <h2 v-if="currentUser.full_name">{{ currentUser.full_name }}</h2>
+          
+          <div class="stats">
+            <div class="stat">
+              <span class="count">{{ currentUser.posts_count || 0 }}</span>
+              <span class="label">posts</span>
+            </div>
+            <div class="stat">
+              <span class="count">{{ currentUser.followers_count || 0 }}</span>
+              <span class="label">followers</span>
+            </div>
+            <div class="stat">
+              <span class="count">{{ currentUser.following_count || 0 }}</span>
+              <span class="label">following</span>
+            </div>
+          </div>
+
+          <button @click="logout" class="logout-button">Logout</button>
+        </div>
+      </div>
+      
+      <div class="token-section">
+        <h3>Your Token Script</h3>
+        <p>Add this script to your website to use your Instagram token:</p>
+        
+        <div class="code-box">
+          <code>{{ scriptTagDisplay }}</code>
+          <button @click="copyScriptTag" class="copy-button">Copy</button>
+        </div>
+        
+        <div class="usage-info">
+          <h4>How to Use</h4>
+          <p>Once you've added the script to your website, you can access your token via the <code>window.myInstagramToken</code> variable.</p>
+          
+          <div class="code-box">
+            <code>const token = window.myInstagramToken;</code>
+            <code>// Use the token to fetch Instagram data</code>
+          </div>
+          
+          <div class="token-details">
+            <h4>Token Information</h4>
+            <button @click="refreshTokenHandler" :disabled="isRefreshing" class="refresh-button">
+              {{ isRefreshing ? 'Refreshing...' : 'Refresh Token' }}
+            </button>
+            <p class="token-expires" v-if="tokenExpiresAt">
+              Token expires: {{ formatExpirationDate(tokenExpiresAt) }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapGetters, mapActions } from 'vuex';
+import api from '../services/api';
+
+export default {
+  name: 'ProfileView',
+  data() {
+    return {
+      isRefreshing: false,
+      tokenExpiresAt: null,
+      copiedMessage: '',
+      subscriptionStatus: null,
+      isLoadingSubscription: false
+    };
+  },
+  computed: {
+    ...mapGetters(['currentUser', 'isLoading']),
+    
+    tokenScriptUrl() {
+      if (!this.currentUser) return '';
+      return api.getTokenScript(this.currentUser.id);
+    },
+    
+    scriptTagDisplay() {
+      // Escapa corretamente a tag de script para exibição
+      return '&lt;script src="' + this.tokenScriptUrl + '"&gt;&lt;/script&gt;';
+    }
+  },
+  methods: {
+    ...mapActions(['refreshToken', 'logout']),
+    
+    copyScriptTag() {
+      // Construindo a tag de script manualmente para evitar problemas de parser
+      const part1 = '<script';
+      const part2 = ' src="';
+      const part3 = '"></';
+      const part4 = 'script>';
+      const scriptText = part1 + part2 + this.tokenScriptUrl + part3 + part4;
+      
+      navigator.clipboard.writeText(scriptText)
+        .then(() => {
+          alert('Script tag copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Could not copy text: ', err);
+        });
+    },
+    
+    refreshTokenHandler() {
+      this.isRefreshing = true;
+      this.refreshToken()
+        .then(response => {
+          this.tokenExpiresAt = new Date(response.data.expires_at);
+          this.isRefreshing = false;
+        })
+        .catch(() => {
+          this.isRefreshing = false;
+        });
+    },
+    
+    formatExpirationDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    },
+    
+    // Subscription methods
+    getSubscriptionStatus() {
+      this.isLoadingSubscription = true;
+      this.$store.dispatch('getSubscriptionStatus')
+        .then(response => {
+          this.subscriptionStatus = response;
+          this.isLoadingSubscription = false;
+        })
+        .catch(error => {
+          console.error('Error fetching subscription status:', error);
+          this.isLoadingSubscription = false;
+        });
+    },
+    
+    startSubscription(plan) {
+      api.createSubscription(plan)
+        .then(response => {
+          // Redireciona para a página de checkout do Mercado Pago
+          window.location.href = response.data.init_point;
+        })
+        .catch(error => {
+          console.error('Error creating subscription:', error);
+          alert('Ocorreu um erro ao criar sua assinatura. Por favor, tente novamente.');
+        });
+    },
+    
+    getSubscriptionPlanName() {
+      if (!this.subscriptionStatus || !this.subscriptionStatus.subscription) {
+        return 'Desconhecido';
+      }
+      
+      const plan = this.subscriptionStatus.subscription.plan;
+      if (plan === 'monthly') {
+        return 'Mensal (R$29,90/mês)';
+      } else if (plan === 'yearly') {
+        return 'Anual (R$299,90/ano)';
+      }
+      return plan;
+    },
+    
+    formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    }
+  },
+  mounted() {
+    // Check if user is authenticated
+    if (!this.currentUser && !this.isLoading) {
+      this.$router.push('/');
+      return;
+    }
+    
+    // Fetch subscription status
+    this.getSubscriptionStatus();
+    
+    // Fetch token expiration date if available
+    api.get('/token/info')
+      .then(response => {
+        if (response.data && response.data.expires_at) {
+          this.tokenExpiresAt = new Date(response.data.expires_at);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching token info:', error);
+      });
+  }
+};
+</script>
+
+<style scoped>
+.profile {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.loading {
+  text-align: center;
+  margin-top: 2rem;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.not-authenticated {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+/* Subscription Styles */
+.subscription-alert {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.trial-alert {
+  background-color: #cce5ff;
+  border-left: 4px solid #007bff;
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.subscription-info {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.alert-content {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+.alert-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  align-self: center;
+}
+
+.alert-text h3 {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+}
+
+.alert-text p {
+  margin: 0;
+}
+
+.subscription-button {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  transition: background-color 0.2s;
+}
+
+.subscription-button:hover {
+  background-color: #0069d9;
+}
+
+.subscription-button-yearly {
+  background-color: #28a745;
+  position: relative;
+}
+
+.subscription-button-yearly:hover {
+  background-color: #218838;
+}
+
+.discount-badge {
+  display: inline-block;
+  background-color: #dc3545;
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.countdown {
+  color: #007bff;
+}
+
+.info-badge {
+  display: inline-flex;
+  align-items: center;
+  background-color: #28a745;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 30px;
+  margin-bottom: 10px;
+}
+
+.badge-icon {
+  margin-right: 5px;
+}
+
+.profile-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.profile-header {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.profile-image {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.profile-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #e1306c;
+  color: white;
+  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-info {
+  flex-grow: 1;
+}
+
+.profile-info h1 {
+  margin-bottom: 0.5rem;
+}
+
+.profile-info h2 {
+  font-size: 1.2rem;
+  font-weight: normal;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.stats {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.count {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.logout-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.logout-button:hover {
+  background-color: #d32f2f;
+}
+
+.token-section {
+  padding: 1.5rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.token-section h3 {
+  margin-bottom: 1rem;
+}
+
+.code-box {
+  background-color: #272822;
+  color: #f8f8f2;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.copy-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background-color: #666;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.copy-button:hover {
+  background-color: #888;
+}
+
+.usage-info {
+  margin-top: 1.5rem;
+}
+
+.token-details {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #ddd;
+}
+
+.refresh-button {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.refresh-button:hover {
+  background-color: #1976d2;
+}
+
+.refresh-button:disabled {
+  background-color: #bbdefb;
+  cursor: not-allowed;
+}
+
+.token-expires {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+</style>

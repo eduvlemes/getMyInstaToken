@@ -1,0 +1,262 @@
+<template>
+  <div class="max-w-4xl mx-auto">
+    <div v-if="isLoading" class="flex justify-center items-center py-12">
+      <div class="animate-pulse text-instagram-blue font-medium">Loading...</div>
+    </div>
+    
+    <div v-else-if="!currentUser" class="card text-center py-12">
+      <h2 class="text-2xl font-bold mb-3">Not Authenticated</h2>
+      <p class="text-gray-600 mb-6">Please login to view your profile</p>
+      <button 
+        @click="$router.push('/')" 
+        class="btn btn-primary"
+      >
+        Go to Login
+      </button>
+    </div>
+    
+    <div v-else>
+      <div class="card p-8 mb-8">
+        <div class="flex flex-col md:flex-row md:items-center gap-8">
+          <div class="flex-shrink-0">
+            <img 
+              v-if="currentUser.profile_picture" 
+              :src="currentUser.profile_picture" 
+              alt="Profile picture"
+              class="w-24 h-24 rounded-full object-cover"
+            />
+            <div 
+              v-else 
+              class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold"
+            >
+              {{ currentUser.username?.charAt(0).toUpperCase() || 'U' }}
+            </div>
+          </div>
+          
+          <div class="flex-grow">
+            <h1 class="text-2xl font-bold mb-1">{{ currentUser.username }}</h1>
+            <h2 v-if="currentUser.full_name" class="text-gray-600 mb-4">{{ currentUser.full_name }}</h2>
+            
+            <div class="flex gap-8 mb-6">
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.posts_count || 0 }}</div>
+                <div class="text-sm text-gray-500">posts</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.followers_count || 0 }}</div>
+                <div class="text-sm text-gray-500">followers</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.following_count || 0 }}</div>
+                <div class="text-sm text-gray-500">following</div>
+              </div>
+            </div>
+
+            <button 
+              @click="logout" 
+              class="btn btn-secondary px-6"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card p-8 mb-8">
+        <h3 class="text-xl font-semibold mb-3">Your Token Script</h3>
+        <p class="text-gray-600 mb-4">Add this script to your website to use your Instagram token:</p>
+        
+        <div class="mb-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+            <div class="flex-grow">
+              <span class="font-medium">API Key:</span> 
+              <code class="ml-2 px-2 py-1 bg-gray-100 rounded text-sm">{{ currentUser.api_key || 'No API key available' }}</code>
+            </div>
+            <button 
+              @click="regenerateApiKeyHandler" 
+              :disabled="isRegenerating" 
+              class="btn btn-secondary flex items-center"
+            >
+              <svg v-if="isRegenerating" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRegenerating ? 'Regenerating...' : 'Regenerate API Key' }}
+            </button>
+          </div>
+          <p class="text-sm text-amber-600">
+            <svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            Regenerating your API key will invalidate any previous script URLs. You'll need to update all websites using your token.
+          </p>
+        </div>
+        
+        <div class="relative bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto mb-6">
+          <code class="text-sm font-mono whitespace-pre">&lt;script src="{{ tokenScriptUrl }}"&gt;&lt;/script&gt;</code>
+          <button 
+            @click="copyScriptTag" 
+            class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 p-1 rounded-md transition-colors duration-200"
+            aria-label="Copy to clipboard"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="mb-8">
+          <h4 class="text-lg font-medium mb-2">How to Use</h4>
+          <p class="mb-3">Once you've added the script to your website, you can access your token via the <code class="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono">window.myInstagramToken</code> variable.</p>
+          
+          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto">
+            <pre class="text-sm font-mono"><code>const token = window.myInstagramToken;
+// Use the token to fetch Instagram data</code></pre>
+          </div>
+        </div>
+        
+        <div class="border-t pt-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 class="text-lg font-medium mb-1">Token Information</h4>
+              <p class="text-sm" v-if="tokenExpiresAt">
+                Token expires: <span class="font-medium">{{ formatExpirationDate(tokenExpiresAt) }}</span>
+              </p>
+            </div>
+            <button 
+              @click="refreshTokenHandler" 
+              :disabled="isRefreshing" 
+              class="btn btn-primary flex items-center"
+            >
+              <svg v-if="isRefreshing" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRefreshing ? 'Refreshing...' : 'Refresh Token' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapGetters, mapActions } from 'vuex'
+import api from '../services/api'
+
+export default {
+  name: 'ProfileView',
+  data() {
+    return {
+      isRefreshing: false,
+      isRegenerating: false,
+      tokenExpiresAt: null,
+      copiedMessage: ''
+    }
+  },
+  computed: {
+    ...mapGetters(['currentUser', 'isLoading', 'isAuthenticated']),
+    
+    tokenScriptUrl() {
+      if (!this.currentUser) return ''
+      // Use api_key instead of id
+      return api.getTokenScript(this.currentUser.api_key)
+    }
+  },
+  methods: {
+    ...mapActions(['refreshToken', 'logout']),
+    
+    copyScriptTag() {
+      const start = '<scr' + 'ipt src="';
+      const end = '"></scr' + 'ipt>';
+      const scriptTag = start + this.tokenScriptUrl + end;
+      navigator.clipboard.writeText(scriptTag)
+        .then(() => {
+          alert('Script tag copied to clipboard!')
+        })
+        .catch(err => {
+          console.error('Could not copy text: ', err)
+        })
+    },
+    
+    refreshTokenHandler() {
+      this.isRefreshing = true
+      this.refreshToken()
+        .then(response => {
+          this.tokenExpiresAt = new Date(response.data.expires_at)
+          this.isRefreshing = false
+        })
+        .catch(() => {
+          this.isRefreshing = false
+        })
+    },
+    
+    formatExpirationDate(dateString) {
+      const date = new Date(dateString)
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+    },
+    
+    regenerateApiKeyHandler() {
+      if (!confirm('Are you sure? This will invalidate any existing token scripts on your websites.')) {
+        return;
+      }
+      
+      this.isRegenerating = true;
+      api.regenerateApiKey()
+        .then(response => {
+          this.$store.commit('setUser', {
+            ...this.currentUser,
+            api_key: response.data.api_key
+          });
+          alert('API key regenerated successfully!');
+        })
+        .catch(error => {
+          console.error('Error regenerating API key:', error);
+          alert('Failed to regenerate API key. Please try again.');
+        })
+        .finally(() => {
+          this.isRegenerating = false;
+        });
+    },
+  },
+  created() {
+    console.log('Profile component created')
+    console.log('Current user:', this.currentUser)
+    console.log('Is loading:', this.isLoading)
+    console.log('Is authenticated:', this.isAuthenticated)
+    console.log('Token from cookies:', window.$cookies.get('token'))
+    console.log('Token from localStorage:', localStorage.getItem('auth_token'))
+    
+    // If no user is loaded but we have a token, try to initialize auth
+    if (!this.currentUser && (window.$cookies.get('token') || localStorage.getItem('auth_token'))) {
+      console.log('No user loaded but token exists, initializing auth')
+      this.$store.dispatch('initAuth')
+        .then(user => {
+          console.log('Auth initialized with user:', user)
+          if (!user) {
+            console.log('Failed to load user, redirecting to home')
+            this.$router.push('/')
+          }
+        })
+        .catch(error => {
+          console.error('Error initializing auth:', error)
+          this.$router.push('/')
+        })
+    }
+  },
+  mounted() {
+    // Check if user is authenticated after a short delay to allow for auth initialization
+    setTimeout(() => {
+      if (!this.currentUser && !this.isLoading) {
+        console.log('User still not authenticated in Profile after delay, redirecting to home')
+        this.$router.push('/')
+      }
+    }, 500)
+  }
+}
+</script>
+
+<style scoped>
+/* Utilizando apenas Tailwind CSS */
+</style>

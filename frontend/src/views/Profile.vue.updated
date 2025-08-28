@@ -1,0 +1,405 @@
+<template>
+  <div class="max-w-4xl mx-auto">
+    <div v-if="isLoading" class="flex justify-center items-center py-12">
+      <div class="animate-pulse text-instagram-blue font-medium">Loading...</div>
+    </div>
+    
+    <div v-else-if="!currentUser" class="card text-center py-12">
+      <h2 class="text-2xl font-bold mb-3">Not Authenticated</h2>
+      <p class="text-gray-600 mb-6">Please login to view your profile</p>
+      <button 
+        @click="$router.push('/')" 
+        class="bg-instagram-blue text-white rounded-md px-4 py-2 hover:bg-blue-600"
+      >
+        Go to Login
+      </button>
+    </div>
+    
+    <div v-else>
+      <!-- Subscription Alert -->
+      <div v-if="subscriptionStatus && !subscriptionStatus.isActive && !subscriptionStatus.inTrialPeriod" 
+           class="card p-6 mb-6 bg-amber-50 border-l-4 border-amber-500">
+        <div class="flex items-start">
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="h-6 w-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-lg font-medium text-amber-800">Assinatura necessária</h3>
+            <p class="mt-1 text-amber-700">Seu token deixará de funcionar em breve. Assine agora para continuar usando nosso serviço sem interrupções.</p>
+            <div class="mt-4 flex flex-col sm:flex-row gap-3">
+              <button @click="startSubscription('monthly')" class="btn w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white">
+                Assinar por R$29,90/mês
+              </button>
+              <button @click="startSubscription('yearly')" class="btn w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white flex items-center justify-center">
+                Assinar por R$299,90/ano 
+                <span class="ml-2 text-xs bg-red-500 px-2 py-0.5 rounded-full">Economize 16%</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Trial Period Alert -->
+      <div v-if="subscriptionStatus && subscriptionStatus.inTrialPeriod" 
+           class="card p-6 mb-6 bg-blue-50 border-l-4 border-blue-500">
+        <div class="flex items-start">
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-lg font-medium text-blue-800">Período de teste gratuito</h3>
+            <p class="mt-1 text-blue-700">
+              <strong class="font-bold">Faltam {{ subscriptionStatus.daysLeft }} dias</strong> 
+              para acabar seu teste grátis. Garanta sua assinatura agora e não perca acesso ao seu token!
+            </p>
+            <div class="mt-4">
+              <button @click="startSubscription('monthly')" class="btn bg-blue-500 hover:bg-blue-600 text-white">
+                Assinar agora
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Active Subscription Info -->
+      <div v-if="subscriptionStatus && subscriptionStatus.isActive" 
+           class="card p-6 mb-6 bg-green-50 border-l-4 border-green-500">
+        <div class="flex items-start">
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <div class="flex items-center">
+              <h3 class="text-lg font-medium text-green-800">Assinatura ativa</h3>
+              <span class="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Ativo</span>
+            </div>
+            <p class="mt-1 text-green-700">Seu plano: <strong>{{ getSubscriptionPlanName() }}</strong></p>
+            <p v-if="subscriptionStatus.subscription && subscriptionStatus.subscription.ends_at" class="text-green-700">
+              Válido até: {{ formatDate(subscriptionStatus.subscription.ends_at) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card p-8 mb-8">
+        <div class="flex flex-col md:flex-row md:items-center gap-8">
+          <div class="flex-shrink-0">
+            <img 
+              v-if="currentUser.profile_picture" 
+              :src="currentUser.profile_picture" 
+              alt="Profile picture"
+              class="w-24 h-24 rounded-full object-cover"
+            />
+            <div 
+              v-else 
+              class="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold"
+            >
+              {{ currentUser.username?.charAt(0).toUpperCase() || 'U' }}
+            </div>
+          </div>
+          
+          <div class="flex-grow">
+            <h1 class="text-2xl font-bold mb-1">{{ currentUser.username }}</h1>
+            <h2 v-if="currentUser.full_name" class="text-gray-600 mb-4">{{ currentUser.full_name }}</h2>
+            
+            <div class="flex gap-8 mb-6">
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.posts_count || 0 }}</div>
+                <div class="text-sm text-gray-500">posts</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.followers_count || 0 }}</div>
+                <div class="text-sm text-gray-500">followers</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xl font-semibold">{{ currentUser.following_count || 0 }}</div>
+                <div class="text-sm text-gray-500">following</div>
+              </div>
+            </div>
+
+            <button 
+              @click="logout" 
+              class="bg-gray-200 text-gray-800 rounded-md px-6 py-2 hover:bg-gray-300"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="card p-8 mb-8">
+        <h3 class="text-xl font-semibold mb-3">Your Token Script</h3>
+        <p class="text-gray-600 mb-4">Add this script to your website to use your Instagram token:</p>
+        
+        <div class="mb-6">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+            <div class="flex-grow">
+              <span class="font-medium">API Key:</span> 
+              <code class="ml-2 px-2 py-1 bg-gray-100 rounded text-sm">{{ currentUser.api_key || 'No API key available' }}</code>
+            </div>
+            <button 
+              @click="regenerateApiKeyHandler" 
+              :disabled="isRegenerating" 
+              class="bg-gray-200 text-gray-800 rounded-md px-4 py-2 hover:bg-gray-300 flex items-center"
+            >
+              <svg v-if="isRegenerating" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRegenerating ? 'Regenerating...' : 'Regenerate API Key' }}
+            </button>
+          </div>
+          <p class="text-sm text-amber-600">
+            <svg class="inline-block h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            Regenerating your API key will invalidate any previous script URLs. You'll need to update all websites using your token.
+          </p>
+        </div>
+        
+        <div class="relative bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto mb-6">
+          <code class="text-sm font-mono whitespace-pre">&lt;script src="{{ tokenScriptUrl }}"&gt;&lt;/script&gt;</code>
+          <button 
+            @click="copyScriptTag" 
+            class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 p-1 rounded-md transition-colors duration-200"
+            aria-label="Copy to clipboard"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="mb-8">
+          <h4 class="text-lg font-medium mb-2">How to Use</h4>
+          <p class="mb-3">Once you've added the script to your website, you can access your token via the <code class="px-1 py-0.5 bg-gray-100 rounded text-sm font-mono">window.myInstagramToken</code> variable.</p>
+          
+          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto">
+            <pre class="text-sm font-mono"><code>const token = window.myInstagramToken;
+// Use the token to fetch Instagram data</code></pre>
+          </div>
+        </div>
+        
+        <div class="border-t pt-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h4 class="text-lg font-medium mb-1">Token Information</h4>
+              <p class="text-sm" v-if="tokenExpiresAt">
+                Token expires: <span class="font-medium">{{ formatExpirationDate(tokenExpiresAt) }}</span>
+              </p>
+            </div>
+            <button 
+              @click="refreshTokenHandler" 
+              :disabled="isRefreshing" 
+              class="btn btn-primary flex items-center"
+            >
+              <svg v-if="isRefreshing" class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isRefreshing ? 'Refreshing...' : 'Refresh Token' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mapGetters, mapActions } from 'vuex'
+import api from '../services/api'
+
+export default {
+  name: 'ProfileView',
+  data() {
+    return {
+      isRefreshing: false,
+      isRegenerating: false,
+      tokenExpiresAt: null,
+      subscriptionStatus: null,
+      isLoadingSubscription: false
+    }
+  },
+  computed: {
+    ...mapGetters(['currentUser', 'isLoading', 'isAuthenticated']),
+    
+    tokenScriptUrl() {
+      if (!this.currentUser) return ''
+      // Use api_key instead of id
+      return api.getTokenScript(this.currentUser.api_key)
+    }
+  },
+  methods: {
+    ...mapActions(['refreshToken', 'logout', 'getSubscriptionStatus']),
+    
+    copyScriptTag() {
+      const start = '<scr' + 'ipt src="';
+      const end = '"></scr' + 'ipt>';
+      const scriptTag = start + this.tokenScriptUrl + end;
+      navigator.clipboard.writeText(scriptTag)
+        .then(() => {
+          alert('Script tag copied to clipboard!')
+        })
+        .catch(err => {
+          console.error('Could not copy text: ', err)
+        })
+    },
+    
+    refreshTokenHandler() {
+      this.isRefreshing = true
+      this.refreshToken()
+        .then(response => {
+          this.tokenExpiresAt = new Date(response.data.expires_at)
+          this.isRefreshing = false
+        })
+        .catch(() => {
+          this.isRefreshing = false
+        })
+    },
+    
+    formatExpirationDate(dateString) {
+      const date = new Date(dateString)
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+    },
+    
+    regenerateApiKeyHandler() {
+      if (!confirm('Are you sure? This will invalidate any existing token scripts on your websites.')) {
+        return;
+      }
+      
+      this.isRegenerating = true;
+      api.regenerateApiKey()
+        .then(response => {
+          this.$store.commit('setUser', {
+            ...this.currentUser,
+            api_key: response.data.api_key
+          });
+          alert('API key regenerated successfully!');
+        })
+        .catch(error => {
+          console.error('Error regenerating API key:', error);
+          alert('Failed to regenerate API key. Please try again.');
+        })
+        .finally(() => {
+          this.isRegenerating = false;
+        });
+    },
+
+    // Subscription methods
+    fetchSubscriptionStatus() {
+      this.isLoadingSubscription = true;
+      this.getSubscriptionStatus()
+        .then(data => {
+          console.log('Subscription status data:', data);
+          this.subscriptionStatus = data;
+        })
+        .catch(error => {
+          console.error('Error fetching subscription status:', error);
+        })
+        .finally(() => {
+          this.isLoadingSubscription = false;
+        });
+    },
+    
+    startSubscription(plan) {
+      api.createSubscription(plan)
+        .then(response => {
+          // Redireciona para a página de checkout do Mercado Pago
+          if (response.data && response.data.init_point) {
+            window.location.href = response.data.init_point;
+          } else {
+            console.error('No init_point received from API:', response.data);
+            alert('Erro ao criar assinatura. Por favor, tente novamente.');
+          }
+        })
+        .catch(error => {
+          console.error('Error creating subscription:', error);
+          alert('Ocorreu um erro ao criar sua assinatura. Por favor, tente novamente.');
+        });
+    },
+    
+    getSubscriptionPlanName() {
+      if (!this.subscriptionStatus || !this.subscriptionStatus.subscription) {
+        return 'Desconhecido';
+      }
+      
+      const plan = this.subscriptionStatus.subscription.plan_type;
+      if (plan === 'monthly') {
+        return 'Mensal (R$29,90/mês)';
+      } else if (plan === 'yearly') {
+        return 'Anual (R$299,90/ano)';
+      }
+      return plan;
+    },
+    
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    }
+  },
+  created() {
+    // If no user is loaded but we have a token, try to initialize auth
+    if (!this.currentUser && (window.$cookies.get('token') || localStorage.getItem('auth_token'))) {
+      this.$store.dispatch('initAuth')
+        .then(user => {
+          if (!user) {
+            this.$router.push('/');
+          } else {
+            // Fetch subscription status after user is loaded
+            this.fetchSubscriptionStatus();
+            
+            // Fetch token info
+            api.getTokenInfo()
+              .then(response => {
+                if (response.data && response.data.expires_at) {
+                  this.tokenExpiresAt = new Date(response.data.expires_at);
+                }
+              })
+              .catch(error => {
+                console.error('Error fetching token info:', error);
+              });
+          }
+        })
+        .catch(error => {
+          console.error('Error initializing auth:', error);
+          this.$router.push('/');
+        });
+    } else if (this.currentUser) {
+      // If user is already loaded, fetch subscription status
+      this.fetchSubscriptionStatus();
+    }
+  },
+  mounted() {
+    // Check if user is authenticated after a short delay to allow for auth initialization
+    setTimeout(() => {
+      if (!this.currentUser && !this.isLoading) {
+        this.$router.push('/');
+      } else if (this.currentUser && !this.subscriptionStatus) {
+        this.fetchSubscriptionStatus();
+      }
+    }, 500);
+  }
+}
+</script>
+
+<style scoped>
+.card {
+  @apply bg-white rounded-lg shadow overflow-hidden;
+}
+
+.btn {
+  @apply inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+}
+
+.btn-primary {
+  @apply bg-blue-500 text-white hover:bg-blue-600;
+}
+</style>
