@@ -8,7 +8,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run serve",
     "build": "npm run install:all && npm run build:frontend && npm run build:backend && npm run copy:frontend && npm run prisma:generate",
-    "build:frontend": "cd frontend && npm run build",
+    "build:frontend": "cd frontend && npx vue-cli-service build --dest dist",
     "build:backend": "cd backend && npm install --production",
     "copy:frontend": "node scripts/copy-frontend.js",
     "start": "node backend/server.js",
