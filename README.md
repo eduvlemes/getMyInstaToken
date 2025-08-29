@@ -76,16 +76,6 @@ Port: 5432
 
 #### **App Service Environment Variables**
 ```env
-NODE_ENV=production
-DATABASE_URL=postgresql://postgres:SUA_SENHA@instagramtoken-db:5432/instagramtoken?sslmode=disable
-JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30
-INSTAGRAM_CLIENT_ID=1271140675015743
-INSTAGRAM_CLIENT_SECRET=a75c732e2073950f9a7cd7d20950dead
-MERCADO_PAGO_ACCESS_TOKEN=SEU_TOKEN_MERCADO_PAGO_REAL
-FRONTEND_URL=https://seu-app.easypanel.app
-BACKEND_URL=https://seu-app.easypanel.app
-INSTAGRAM_REDIRECT_URI=https://seu-app.easypanel.app/api/auth/instagram/callback
-```
 
 ### **🔄 Como funciona o Deploy**
 
