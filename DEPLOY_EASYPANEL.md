@@ -43,17 +43,6 @@ git push -u origin main
    - **Auto Deploy**: ✅ (on push to main)
 
 3. **Environment Variables**:
-```env
-NODE_ENV=production
-DATABASE_URL=postgresql://postgres:senha@instagramtoken-db:5432/instagramtoken?sslmode=disable
-JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30
-INSTAGRAM_CLIENT_ID=1271140675015743
-INSTAGRAM_CLIENT_SECRET=a75c732e2073950f9a7cd7d20950dead
-MERCADO_PAGO_ACCESS_TOKEN=seu-token-real-aqui
-FRONTEND_URL=https://seu-app.easypanel.app
-BACKEND_URL=https://seu-app.easypanel.app
-INSTAGRAM_REDIRECT_URI=https://seu-app.easypanel.app/api/auth/instagram/callback
-```
 
 4. **Domínio**: Configure um subdomínio (ex: `instagramtoken.easypanel.app`)
 
