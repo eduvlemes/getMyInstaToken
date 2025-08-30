@@ -54,8 +54,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'public')));
   
   // Handle client-side routing - serve index.html for all non-API routes
-  app.get('*', (req, res) => {
-    // app.get('/{*any}', (req, res) => {
+  app.get('/{*any}', (req, res) => {
     // Don't serve index.html for API routes
     if (req.path.startsWith('/api/') || req.path.startsWith('/health')) {
       return res.status(404).json({ error: 'API endpoint not found' });
@@ -111,14 +110,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Serve frontend for all non-API routes (SPA fallback)
-app.get('*', (req, res) => {
-  // Don't serve index.html for API routes
-  if (req.path.startsWith('/api/') || req.path.startsWith('/health')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Comentado para evitar duplicidade de rotas - já existe um handler de SPA acima
+// app.get('*', (req, res) => {
+//   if (req.path.startsWith('/api/') || req.path.startsWith('/health')) {
+//     return res.status(404).json({ error: 'API endpoint not found' });
+//   }
+//   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// });
 
 // Start HTTP server (EasyPanel handles HTTPS)
 app.listen(PORT, () => {
