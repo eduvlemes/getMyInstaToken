@@ -15,7 +15,8 @@ cmds = [
 ]
 
 [start]
-cmd = "cd backend && npx prisma generate && node server.js"
+cmd = "cd backend && node server.minimal.js"
 
 [variables]
 NODE_ENV = "production"
+NODE_OPTIONS = "--max-old-space-size=512"
